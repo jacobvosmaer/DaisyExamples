@@ -6,16 +6,15 @@ DaisyPod hw;
 
 int main(void)
 {
+    float x = 0;
+
     hw.Init();
 
     while(1)
     {
-        hw.led1.Set(1, 1, 1);
-        System::Delay(100);
+        x = x > 0 ? 0 : 1;
+        hw.led1.Set(x, x, x);
         hw.UpdateLeds();
-
-        hw.led1.Set(0, 0, 0);
         System::Delay(100);
-        hw.UpdateLeds();
     }
 }
