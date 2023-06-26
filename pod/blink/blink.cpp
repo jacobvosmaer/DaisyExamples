@@ -15,6 +15,6 @@ int main(void)
         x = x > 0 ? 0 : 1;
         hw.led1.Set(x, x, x);
         hw.UpdateLeds();
-        System::Delay(100);
+        System::Delay(x > 0 ? 100 : 1000);
     }
 }
