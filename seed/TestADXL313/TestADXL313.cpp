@@ -1,11 +1,14 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
 
+#define ENABLE_SERIAL false
+
 using namespace daisy;
 using namespace daisysp;
 
-DaisySeed  hw;
-Oscillator osc;
+DaisySeed hw;
+#define N_OSCS 3
+Oscillator osc[N_OSCS];
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
@@ -15,7 +18,10 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
     for(; size; size -= 2)
     {
-        sig    = osc.Process();
+        sig = 0;
+        for(int i = 0; i < N_OSCS; i++)
+            sig += osc[i].Process();
+
         *out++ = sig;
         *out++ = sig;
     }
@@ -59,9 +65,6 @@ int32_t decodeAxis(uint8_t range, uint8_t* raw)
 
 int main(void)
 {
-    // Configure and Initialize the Daisy Seed
-    // These are separate to allow reconfiguration of any of the internal
-    // components before initialization.
     hw.Configure();
 
     I2CHandle::Config i2c_conf;
@@ -75,7 +78,8 @@ int main(void)
         hw.PrintLine("I2C init failed");
 
     hw.Init();
-    hw.StartLog(true);
+    if(ENABLE_SERIAL)
+        hw.StartLog(true);
 
     uint8_t buf[8];
 
@@ -96,10 +100,12 @@ int main(void)
 
 
     hw.SetAudioBlockSize(4);
-    osc.Init(hw.AudioSampleRate());
-    osc.SetWaveform(osc.WAVE_SIN);
-    osc.SetFreq(440);
-    osc.SetAmp(1.0);
+    for(int i = 0; i < N_OSCS; i++)
+    {
+        osc[i].Init(hw.AudioSampleRate());
+        osc[i].SetWaveform(osc[i].WAVE_SIN);
+        osc[i].SetAmp(1.0 / (float)N_OSCS);
+    }
     hw.StartAudio(AudioCallback);
 
     for(;;)
@@ -110,10 +116,14 @@ int main(void)
         if(!(buf[0] & 0x80))
             continue;
 
-        int32_t x = decodeAxis(buf[0], buf + 2);
-        int32_t y = decodeAxis(buf[0], buf + 4);
-        int32_t z = decodeAxis(buf[0], buf + 6);
-        hw.PrintLine("x=%d y=%d z=%d", x, y, z);
-        osc.SetFreq(440 + x / 1024);
+        float   baseFreq[N_OSCS] = {440, 523.25, 659.25}; // A, C, E
+        int32_t axes[3];
+        for(int i = 0; i < 3; i++)
+        {
+            axes[i] = decodeAxis(buf[0], buf + 2 * (i + 1));
+            osc[i].SetFreq(baseFreq[i] + (float)axes[i] / 1024.0);
+        }
+
+        hw.PrintLine("x=%d y=%d z=%d", axes[0], axes[1], axes[2]);
     }
 }
