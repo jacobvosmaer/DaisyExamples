@@ -114,6 +114,6 @@ int main(void)
         int32_t y = decodeAxis(buf[0], buf + 4);
         int32_t z = decodeAxis(buf[0], buf + 6);
         hw.PrintLine("x=%d y=%d z=%d", x, y, z);
-        osc.SetFreq(x / 1024);
+        osc.SetFreq(440 + x / 1024);
     }
 }
