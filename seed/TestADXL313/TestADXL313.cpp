@@ -1,11 +1,25 @@
 #include "daisy_seed.h"
+#include "daisysp.h"
 
-// Use the daisy namespace to prevent having to type
-// daisy:: before all libdaisy functions
 using namespace daisy;
+using namespace daisysp;
 
-// Declare a DaisySeed object called hardware
-DaisySeed hw;
+DaisySeed  hw;
+Oscillator osc;
+
+void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
+                   AudioHandle::InterleavingOutputBuffer out,
+                   size_t                                size)
+{
+    float sig;
+
+    for(; size; size -= 2)
+    {
+        sig    = osc.Process();
+        *out++ = sig;
+        *out++ = sig;
+    }
+}
 
 #define ADXL313_ADDRESS 0x1d
 
@@ -80,7 +94,14 @@ int main(void)
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
-    // Loop forever
+
+    hw.SetAudioBlockSize(4);
+    osc.Init(hw.AudioSampleRate());
+    osc.SetWaveform(osc.WAVE_SIN);
+    osc.SetFreq(440);
+    osc.SetAmp(1.0);
+    hw.StartAudio(AudioCallback);
+
     for(;;)
     {
         System::Delay(1);
@@ -89,9 +110,10 @@ int main(void)
         if(!(buf[0] & 0x80))
             continue;
 
-        hw.PrintLine("x=%d y=%d z=%d",
-                     decodeAxis(buf[0], buf + 2),
-                     decodeAxis(buf[0], buf + 4),
-                     decodeAxis(buf[0], buf + 6));
+        int32_t x = decodeAxis(buf[0], buf + 2);
+        int32_t y = decodeAxis(buf[0], buf + 4);
+        int32_t z = decodeAxis(buf[0], buf + 6);
+        hw.PrintLine("x=%d y=%d z=%d", x, y, z);
+        osc.SetFreq(x / 1024);
     }
 }
