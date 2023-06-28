@@ -22,18 +22,18 @@ int main(void)
     i2c_conf.mode           = I2CHandle::Config::Mode::I2C_MASTER;
     i2c_conf.pin_config.scl = {DSY_GPIOB, 8};
     i2c_conf.pin_config.sda = {DSY_GPIOB, 9};
-    i2c.Init(i2c_conf);
+    if(i2c.Init(i2c_conf) != I2CHandle::Result::OK)
+        hw.PrintLine("I2C init failed");
 
 
     hw.Init();
     hw.StartLog(true);
 
-    uint8_t buf[5];
-    if(i2c.ReadDataAtAddress(0x1d, 0, 1, buf, sizeof(buf), 1000)
-       != I2CHandle::Result::OK)
-    {
-        hw.PrintLine("ReadDataAtAddress error");
-    }
+    const uint8_t adxl313 = 0x1d;
+    uint8_t       buf[5]  = {0};
+
+    i2c.TransmitBlocking(adxl313, buf, 1, 1000);
+    i2c.ReceiveBlocking(adxl313, buf, sizeof(buf), 1000);
 
     hw.PrintLine("DEV_ID0=%02x DEV_ID1=%02x PARTID=%02x REVID=%02x XID=%02x",
                  buf[0],
