@@ -110,8 +110,6 @@ int main(void)
 
     for(;;)
     {
-        System::Delay(1);
-
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
             continue;
