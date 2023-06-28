@@ -36,6 +36,12 @@ bool i2cWrite1(I2CHandle& i2c, uint8_t reg, uint8_t data)
            == I2CHandle::Result::OK;
 }
 
+int32_t decodeAxis(uint8_t range, uint8_t* raw)
+{
+    range &= 0b11;
+    uint32_t out = (((uint16_t)raw[1] << 8) | raw[0]) << range;
+    return out;
+}
 
 int main(void)
 {
@@ -83,8 +89,9 @@ int main(void)
         if(!(buf[0] & 0x80))
             continue;
 
-        uint8_t  range = buf[1] & 0b11;
-        uint16_t x     = (((uint16_t)buf[3] << 8) | buf[2]) << range;
-        hw.PrintLine("x=%d", x);
+        hw.PrintLine("x=%d y=%d z=%d",
+                     decodeAxis(buf[0], buf + 2),
+                     decodeAxis(buf[0], buf + 4),
+                     decodeAxis(buf[0], buf + 6));
     }
 }
