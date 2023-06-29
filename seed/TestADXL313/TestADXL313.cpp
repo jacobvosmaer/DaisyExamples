@@ -10,7 +10,8 @@ using namespace daisysp;
 
 DaisySeed hw;
 
-Fm2 fm2;
+Fm2      fm2;
+ReverbSc reverb;
 
 bool mute = false;
 
@@ -18,11 +19,14 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t                                size)
 {
+    float buf[2];
+
     for(; size; size -= 2)
     {
         float sig = mute ? 0 : fm2.Process();
-        *out++    = sig;
-        *out++    = sig;
+        reverb.Process(sig, sig, buf, buf + 1);
+        for(int i = 0; i < 2; i++)
+            *out++ = (7.0 * sig + buf[i]) / 8.0;
     }
 }
 
@@ -102,6 +106,9 @@ int main(void)
     fm2.Init(hw.AudioSampleRate());
     fm2.SetIndex(baseIndex);
     fm2.SetFrequency(55);
+    reverb.Init(hw.AudioSampleRate());
+    reverb.SetFeedback(0.8);
+    reverb.SetLpFreq(6000);
     hw.StartAudio(AudioCallback);
 
     int16_t sensorMax[3] = {0}, sensorMin[3] = {0};
