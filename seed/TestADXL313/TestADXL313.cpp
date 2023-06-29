@@ -65,7 +65,9 @@ int32_t decodeAxis(uint8_t range, uint8_t* raw)
 
 int main(void)
 {
-    hw.Configure();
+    hw.Init();
+    if(ENABLE_SERIAL)
+        hw.StartLog(true);
 
     I2CHandle::Config i2c_conf;
     i2c_conf.periph         = I2CHandle::Config::Peripheral::I2C_1;
@@ -76,10 +78,6 @@ int main(void)
     I2CHandle i2c;
     if(i2c.Init(i2c_conf) != I2CHandle::Result::OK)
         hw.PrintLine("I2C init failed");
-
-    hw.Init();
-    if(ENABLE_SERIAL)
-        hw.StartLog(true);
 
     uint8_t buf[8];
 
@@ -97,7 +95,6 @@ int main(void)
     i2cWrite1(i2c, 0x31, 0b11);      // Set range
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
-
 
     hw.SetAudioBlockSize(4);
     for(int i = 0; i < N_OSCS; i++)
