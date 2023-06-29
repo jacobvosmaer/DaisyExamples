@@ -1,7 +1,7 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
 
-#define ENABLE_SERIAL false
+#define ENABLE_SERIAL true
 
 using namespace daisy;
 using namespace daisysp;
@@ -56,11 +56,11 @@ bool i2cWrite1(I2CHandle& i2c, uint8_t reg, uint8_t data)
            == I2CHandle::Result::OK;
 }
 
-int32_t decodeAxis(uint8_t range, uint8_t* raw)
+int16_t decodeAxis(uint8_t* raw)
 {
-    uint32_t out = ((uint32_t)raw[1] & 0b11) << 8;
-    out |= raw[0];
-    return out;
+    uint16_t out = (((uint16_t)raw[1] & 0b11) << 8) | ((uint16_t)raw[0]);
+    // Convert uint10 to int10 with 2's complement
+    return raw[1] & 0b10 ? out - (1 << 10) : out;
 }
 
 int main(void)
@@ -105,7 +105,7 @@ int main(void)
     }
     hw.StartAudio(AudioCallback);
 
-    int32_t sensorMax[3] = {0}, sensorMin[3] = {0};
+    int16_t sensorMax[3] = {0}, sensorMin[3] = {0};
 
     for(;;)
     {
@@ -114,11 +114,11 @@ int main(void)
             continue;
 
         float   baseFreq[N_OSCS] = {440, 523.25, 659.25}; // A, C, E
-        int32_t axes[3];
+        int16_t axes[3];
         int     newMinMax = 0;
         for(int i = 0; i < 3; i++)
         {
-            axes[i] = decodeAxis(buf[0], buf + 2 * (i + 1));
+            axes[i] = decodeAxis(buf + 2 * (i + 1));
             osc[i].SetFreq(baseFreq[i] + (float)axes[i]);
             if(axes[i] > sensorMax[i])
             {
