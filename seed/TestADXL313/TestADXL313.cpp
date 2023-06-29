@@ -1,7 +1,9 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
 
-#define ENABLE_SERIAL true
+#ifndef ENABLE_SERIAL
+#define ENABLE_SERIAL false
+#endif
 
 using namespace daisy;
 using namespace daisysp;
