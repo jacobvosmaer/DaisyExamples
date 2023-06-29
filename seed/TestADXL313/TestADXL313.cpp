@@ -9,7 +9,7 @@ using namespace daisy;
 using namespace daisysp;
 
 DaisySeed hw;
-#define N_OSCS 1
+#define N_OSCS 2
 Oscillator osc[N_OSCS];
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
@@ -114,7 +114,7 @@ int main(void)
         if(!(buf[0] & 0x80))
             continue;
 
-        float   baseFreq[N_OSCS] = {440}; //, 523.25, 659.25}; // A, C, E
+        float   baseFreq[N_OSCS] = {110, 110};
         int16_t axes[3];
         int     newMinMax = 0;
         for(int i = 0; i < 3; i++)
@@ -141,7 +141,7 @@ int main(void)
                          sensorMin[2],
                          sensorMax[2]);
 
-        osc[0].SetFreq(baseFreq[0] + (float)axes[1]);
-        osc[0].SetAmp(((float)(axes[0] + 512) / 1024.0) - 0.5);
+        osc[0].SetFreq(baseFreq[0]);
+        osc[1].SetFreq(baseFreq[1] + (float)axes[1] / 10.0);
     }
 }
