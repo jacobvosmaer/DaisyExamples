@@ -58,8 +58,8 @@ bool i2cWrite1(I2CHandle& i2c, uint8_t reg, uint8_t data)
 
 int32_t decodeAxis(uint8_t range, uint8_t* raw)
 {
-    range &= 0b11;
-    uint32_t out = (((uint16_t)raw[1] << 8) | raw[0]) << range;
+    uint32_t out = ((uint32_t)raw[1] & 0b11) << 8;
+    out |= raw[0];
     return out;
 }
 
