@@ -94,7 +94,7 @@ int main(void)
                  buf[4]);
 
     i2cWrite1(i2c, 0x2c, 0b1101);    // 800Hz acquisition
-    i2cWrite1(i2c, 0x31, 0b1000);    // Full resolution
+    i2cWrite1(i2c, 0x31, 0b11);      // Set range
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
@@ -108,6 +108,8 @@ int main(void)
     }
     hw.StartAudio(AudioCallback);
 
+    int32_t sensorMax[3] = {0}, sensorMin[3] = {0};
+
     for(;;)
     {
         i2cRead(i2c, 0x30, buf, 8);
@@ -116,12 +118,30 @@ int main(void)
 
         float   baseFreq[N_OSCS] = {440, 523.25, 659.25}; // A, C, E
         int32_t axes[3];
+        int     newMinMax = 0;
         for(int i = 0; i < 3; i++)
         {
             axes[i] = decodeAxis(buf[0], buf + 2 * (i + 1));
-            osc[i].SetFreq(baseFreq[i] + (float)axes[i] / 1024.0);
+            osc[i].SetFreq(baseFreq[i] + (float)axes[i]);
+            if(axes[i] > sensorMax[i])
+            {
+                sensorMax[i] = axes[i];
+                newMinMax    = 1;
+            }
+            if(axes[i] < sensorMin[i])
+            {
+                sensorMin[i] = axes[i];
+                newMinMax    = 1;
+            }
         }
 
-        hw.PrintLine("x=%d y=%d z=%d", axes[0], axes[1], axes[2]);
+        if(newMinMax)
+            hw.PrintLine("x=%d-%d y=%d-%d z=%d-%d",
+                         sensorMin[0],
+                         sensorMax[0],
+                         sensorMin[1],
+                         sensorMax[1],
+                         sensorMin[2],
+                         sensorMax[2]);
     }
 }
