@@ -9,23 +9,20 @@ using namespace daisy;
 using namespace daisysp;
 
 DaisySeed hw;
-#define N_OSCS 2
-Oscillator osc[N_OSCS];
+
+Fm2 fm2;
+
+bool mute = false;
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t                                size)
 {
-    float sig;
-
     for(; size; size -= 2)
     {
-        sig = 0;
-        for(int i = 0; i < N_OSCS; i++)
-            sig += osc[i].Process();
-
-        *out++ = sig;
-        *out++ = sig;
+        float sig = mute ? 0 : fm2.Process();
+        *out++    = sig;
+        *out++    = sig;
     }
 }
 
@@ -71,6 +68,9 @@ int main(void)
     if(ENABLE_SERIAL)
         hw.StartLog(true);
 
+    Switch button1;
+    button1.Init(hw.GetPin(2), 0);
+
     I2CHandle::Config i2c_conf;
     i2c_conf.periph         = I2CHandle::Config::Peripheral::I2C_1;
     i2c_conf.speed          = I2CHandle::Config::Speed::I2C_400KHZ;
@@ -98,23 +98,22 @@ int main(void)
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
-    for(int i = 0; i < N_OSCS; i++)
-    {
-        osc[i].Init(hw.AudioSampleRate());
-        osc[i].SetWaveform(osc[i].WAVE_SIN);
-        osc[i].SetAmp(1.0 / (float)N_OSCS);
-    }
+    float baseIndex = 0.f;
+    fm2.Init(hw.AudioSampleRate());
+    fm2.SetIndex(baseIndex);
+    fm2.SetFrequency(55);
     hw.StartAudio(AudioCallback);
 
     int16_t sensorMax[3] = {0}, sensorMin[3] = {0};
 
     for(;;)
     {
+        mute = button1.RawState();
+
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
             continue;
 
-        float   baseFreq[N_OSCS] = {110, 110};
         int16_t axes[3];
         int     newMinMax = 0;
         for(int i = 0; i < 3; i++)
@@ -141,7 +140,7 @@ int main(void)
                          sensorMin[2],
                          sensorMax[2]);
 
-        osc[0].SetFreq(baseFreq[0]);
-        osc[1].SetFreq(baseFreq[1] + (float)axes[1] / 10.0);
+        fm2.SetRatio((float)(512 + axes[1]) / 1000.0);
+        fm2.SetIndex(baseIndex + (float)(512 + axes[0]) / 4000.0);
     }
 }
