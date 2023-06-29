@@ -60,7 +60,7 @@ int16_t decodeAxis(uint8_t* raw)
 {
     uint16_t out = (((uint16_t)raw[1] & 0b11) << 8) | ((uint16_t)raw[0]);
     // Convert uint10 to int10 with 2's complement
-    return raw[1] & 0b10 ? out - (1 << 10) : out;
+    return out & (1 << 9) ? out - (1 << 10) : out;
 }
 
 int main(void)
@@ -96,7 +96,6 @@ int main(void)
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
-    hw.SetAudioBlockSize(4);
     for(int i = 0; i < N_OSCS; i++)
     {
         osc[i].Init(hw.AudioSampleRate());
