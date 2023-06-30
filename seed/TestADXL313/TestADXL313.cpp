@@ -29,22 +29,21 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         if(!clock.IsRunning())
         {
             clock.Trigger();
-            beat++;
+            if(!root.IsRunning())
+                root.Trigger();
+            if(!sqEnv.IsRunning() && !mute)
+                sqEnv.Trigger();
         }
+
         clock.Process();
-
-        if(beat != lastBeat && beat % 2 == 0 && !mute)
-            root.Trigger();
         root.Process();
-
-        if(beat != lastBeat && beat % 2 && !mute)
-            sqEnv.Trigger();
         sqEnv.Process();
 
         float sqBuf[2], sqSig = sqEnv.GetValue() * square.Process();
 
         reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
-        float sig = (root.GetValue() * fm2.Process() + sqBuf[0]) / 2.0;
+        sqSig     = (sqSig + sqBuf[0]) / 2.0;
+        float sig = (root.GetValue() * fm2.Process() + sqSig) / 2.0;
 
         sig = (1.0 * sig + 1.0 * delay.Read()) / 2.0;
         delay.Write(sig);
@@ -134,10 +133,10 @@ int main(void)
     delay.SetDelay(1.f);
     clock.Init(hw.AudioSampleRate());
     clock.SetTime(ADENV_SEG_ATTACK, 0.001);
-    clock.SetTime(ADENV_SEG_DECAY, 0.5f);
+    clock.SetTime(ADENV_SEG_DECAY, 0.2f);
     root.Init(hw.AudioSampleRate());
     root.SetTime(ADENV_SEG_ATTACK, 0.001);
-    root.SetTime(ADENV_SEG_DECAY, 0.4f);
+    root.SetTime(ADENV_SEG_DECAY, 0.7f);
     sqEnv.Init(hw.AudioSampleRate());
     sqEnv.SetTime(ADENV_SEG_ATTACK, 0.001);
     sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f);
