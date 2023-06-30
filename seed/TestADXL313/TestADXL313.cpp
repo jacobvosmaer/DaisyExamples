@@ -34,21 +34,21 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
             {
                 rootBeat++;
                 root.Trigger();
-                if(!(rootBeat % 13))
+                if((rootBeat % 16) == 1)
                     fmIndex = 0.0035f;
                 else
-                    fmIndex *= 1.001f;
+                    fmIndex *= 1.1f;
 
-                if(!(rootBeat % 7))
+                if((rootBeat % 8) == 1)
                     fmRatio = 0.5f;
                 else
-                    fmRatio *= 1.001f;
+                    fmRatio *= 1.01f;
 
-                hw.PrintLine("rootBeat=%d fmIndex=" FLT_FMT3
-                             " fmRatio=" FLT_FMT3,
-                             rootBeat,
-                             FLT_VAR3(fmIndex),
-                             FLT_VAR3(fmRatio));
+                hw.PrintLine(
+                    "rootBeat=%d fmIndex=" FLT_FMT(6) " fmRatio=" FLT_FMT3,
+                    rootBeat,
+                    FLT_VAR(6, fmIndex),
+                    FLT_VAR3(fmRatio));
                 fm2.SetIndex(fmIndex);
                 fm2.SetRatio(fmRatio);
             }
@@ -60,13 +60,25 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         root.Process();
         sqEnv.Process();
 
-        float sqBuf[2], sqSig = square.Process();
-        if(sqEnv.GetCurrentSegment() != ADENV_SEG_ATTACK)
-            sqSig = 0;
+        float sqBuf[2], sqSig = sqEnv.GetValue() * square.Process();
 
-        reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
-        sqSig     = (sqSig + sqBuf[0]) / 2.0;
-        float sig = (3.0 * root.GetValue() * fm2.Process() + sqSig) / 4.0;
+
+        float fmSig     = root.GetValue() * fm2.Process();
+        float reverbSig = sqSig;
+        if(rootBeat > 11)
+        {
+            reverbSig = (sqSig + 2.0 * fmSig) / 2.0;
+            reverb.SetLpFreq(50000);
+        }
+        else
+        {
+            reverb.SetLpFreq(6000);
+        }
+        reverb.Process(reverbSig, reverbSig, sqBuf, sqBuf + 1);
+        if(rootBeat > 11)
+            sqBuf[0] *= 2.0;
+
+        float sig = (3.0 * fmSig + sqSig + sqBuf[0]) / 5.0;
 
         for(int i = 0; i < 2; i++)
             *out++ = sig;
@@ -155,7 +167,7 @@ int main(void)
     root.SetTime(ADENV_SEG_ATTACK, 0.001);
     root.SetTime(ADENV_SEG_DECAY, 0.7f);
     sqEnv.Init(hw.AudioSampleRate());
-    sqEnv.SetTime(ADENV_SEG_ATTACK, 0.02);
+    sqEnv.SetTime(ADENV_SEG_ATTACK, 0.001);
     sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f);
     square.Init(hw.AudioSampleRate());
     square.SetAmp(1.0);
@@ -165,7 +177,6 @@ int main(void)
     reverb.SetLpFreq(6000);
 
     hw.StartAudio(AudioCallback);
-
 
     for(;;)
     {
@@ -190,6 +201,6 @@ int main(void)
             square.SetFreq(2.0 * 466.163);
 
 
-        sqEnv.SetTime(ADENV_SEG_DECAY, 0.02f + fabsf((float)axes[0] / 128.0));
+        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[0] / 128.0));
     }
 }
