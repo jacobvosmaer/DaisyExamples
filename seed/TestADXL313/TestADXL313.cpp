@@ -104,7 +104,7 @@ int main(void)
         hw.StartLog(true);
 
     Switch button1;
-    button1.Init(hw.GetPin(2), 0);
+    button1.Init(hw.GetPin(28), 0);
 
     I2CHandle::Config i2c_conf;
     i2c_conf.periph         = I2CHandle::Config::Peripheral::I2C_1;
@@ -161,7 +161,7 @@ int main(void)
     for(;;)
     {
         button1.Debounce();
-        mute = button1.Pressed();
+        mute = !button1.Pressed();
 
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
@@ -173,11 +173,16 @@ int main(void)
             axes[i] = decodeAxis(buf + 2 * (i + 1));
         }
 
-        if(axes[0] > 0)
-            square.SetFreq(466.163);
-        else if(axes[0] < 10)
-            square.SetFreq(493.88);
+        hw.PrintLine("x=%d y=%d", axes[0], axes[1]);
 
-        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[1] / 1024.0));
+        if(axes[0] > 40)
+            square.SetFreq(415.30);
+        else if(axes[0] < -30)
+            square.SetFreq(493.88);
+        else
+            square.SetFreq(466.163);
+
+
+        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[1] / 512.0));
     }
 }
