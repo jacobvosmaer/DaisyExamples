@@ -11,21 +11,40 @@ using namespace daisysp;
 DaisySeed hw;
 
 Fm2                         fm2;
-DelayLine<float, 64 * 1024> delay;
-AdEnv                       env;
+DelayLine<float, 16 * 1024> delay;
+AdEnv                       clock, root, sqEnv;
+Oscillator                  square;
+ReverbSc                    reverb;
 
-bool mute = false;
+bool    mute = false;
+uint8_t beat = 0, lastBeat = 0;
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t                                size)
 {
-    if(!env.IsRunning())
-        env.Trigger();
-
     for(; size; size -= 2)
     {
-        float sig = mute ? 0 : env.Process()*fm2.Process();
+        lastBeat = beat;
+        if(!clock.IsRunning())
+        {
+            clock.Trigger();
+            beat++;
+        }
+        clock.Process();
+
+        if(beat != lastBeat && beat % 2 == 0 && !mute)
+            root.Trigger();
+        root.Process();
+
+        if(beat != lastBeat && beat % 2 && !mute)
+            sqEnv.Trigger();
+        sqEnv.Process();
+
+        float sqBuf[2], sqSig = sqEnv.GetValue() * square.Process();
+
+        reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
+        float sig = (root.GetValue() * fm2.Process() + sqBuf[0]) / 2.0;
 
         sig = (1.0 * sig + 1.0 * delay.Read()) / 2.0;
         delay.Write(sig);
@@ -113,50 +132,43 @@ int main(void)
     fm2.SetFrequency(55);
     delay.Init();
     delay.SetDelay(1.f);
-    env.Init(hw.AudioSampleRate());
-    env.SetTime(ADENV_SEG_ATTACK, 0.0001);
-    env.SetTime(ADENV_SEG_DECAY, 0.5f);
+    clock.Init(hw.AudioSampleRate());
+    clock.SetTime(ADENV_SEG_ATTACK, 0.001);
+    clock.SetTime(ADENV_SEG_DECAY, 0.5f);
+    root.Init(hw.AudioSampleRate());
+    root.SetTime(ADENV_SEG_ATTACK, 0.001);
+    root.SetTime(ADENV_SEG_DECAY, 0.4f);
+    sqEnv.Init(hw.AudioSampleRate());
+    sqEnv.SetTime(ADENV_SEG_ATTACK, 0.001);
+    sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f);
+    square.Init(hw.AudioSampleRate());
+    square.SetFreq(8.0 * 58.27);
+    square.SetAmp(1.0);
+    square.SetWaveform(Oscillator::WAVE_SQUARE);
+    reverb.Init(hw.AudioSampleRate());
+    reverb.SetFeedback(0.8);
+    reverb.SetLpFreq(6000);
+
     hw.StartAudio(AudioCallback);
 
-    int16_t sensorMax[3] = {0}, sensorMin[3] = {0};
 
     for(;;)
     {
-        mute = button1.RawState();
+        button1.Debounce();
+        mute = button1.Pressed();
 
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
             continue;
 
         int16_t axes[3];
-        int     newMinMax = 0;
         for(int i = 0; i < 3; i++)
         {
             axes[i] = decodeAxis(buf + 2 * (i + 1));
-            if(axes[i] > sensorMax[i])
-            {
-                sensorMax[i] = axes[i];
-                newMinMax    = 1;
-            }
-            if(axes[i] < sensorMin[i])
-            {
-                sensorMin[i] = axes[i];
-                newMinMax    = 1;
-            }
         }
 
-        if(newMinMax)
-            hw.PrintLine("x=%d-%d y=%d-%d z=%d-%d",
-                         sensorMin[0],
-                         sensorMax[0],
-                         sensorMin[1],
-                         sensorMax[1],
-                         sensorMin[2],
-                         sensorMax[2]);
 
-        //fm2.SetFrequency(55+env.GetValue()*10);
         fm2.SetRatio((float)(512 + axes[1]) / 1000.0);
         fm2.SetIndex(baseIndex + (float)(512 + axes[0]) / 10000.0);
-        //       delay.SetDelay((float)(512 + axes[0]) / 1024.0f);
     }
 }
