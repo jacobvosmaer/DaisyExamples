@@ -10,11 +10,10 @@ using namespace daisysp;
 
 DaisySeed hw;
 
-Fm2                         fm2;
-DelayLine<float, 16 * 1024> delay;
-AdEnv                       clock, root, sqEnv;
-Oscillator                  square;
-ReverbSc                    reverb;
+Fm2        fm2;
+AdEnv      clock, root, sqEnv;
+Oscillator square;
+ReverbSc   reverb;
 
 bool    mute = false;
 uint8_t beat;
@@ -52,9 +51,6 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
         sqSig     = (sqSig + sqBuf[0]) / 2.0;
         float sig = (root.GetValue() * fm2.Process() + 0.6 * sqSig) / 1.6;
-
-        sig = (1.0 * sig + 1.0 * delay.Read()) / 2.0;
-        delay.Write(sig);
 
         for(int i = 0; i < 2; i++)
             *out++ = sig;
@@ -136,8 +132,6 @@ int main(void)
     fm2.Init(hw.AudioSampleRate());
     fm2.SetIndex(fmIndex);
     fm2.SetFrequency(110);
-    delay.Init();
-    delay.SetDelay(1.f);
     clock.Init(hw.AudioSampleRate());
 #define CLOCK 0.2f
     clock.SetTime(ADENV_SEG_ATTACK, CLOCK / 2.0);
