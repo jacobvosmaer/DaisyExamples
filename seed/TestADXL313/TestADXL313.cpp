@@ -176,8 +176,8 @@ int main(void)
     {
         button1.Debounce();
         button2.Debounce();
-        mute = !button1.Pressed();
-        if(button2.Pressed())
+        mute = !button1.RawState();
+        if(button2.RawState())
         {
             reverb.SetFeedback(0.999);
             reverb.SetLpFreq(46000);
