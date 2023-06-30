@@ -17,7 +17,8 @@ Oscillator                  square;
 ReverbSc                    reverb;
 
 bool    mute = false;
-uint8_t beat = 0, lastBeat = 0;
+uint8_t beat;
+float   fmIndex = 0.0035;
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
@@ -25,12 +26,19 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 {
     for(; size; size -= 2)
     {
-        lastBeat = beat;
         if(!clock.IsRunning())
         {
             clock.Trigger();
+            beat++;
             if(!root.IsRunning())
+            {
                 root.Trigger();
+                const float indexFactor = 2;
+                if(beat & 1)
+                    fm2.SetIndex(fmIndex * indexFactor);
+                else
+                    fm2.SetIndex(fmIndex);
+            }
             if(!sqEnv.IsRunning() && !mute)
                 sqEnv.Trigger();
         }
@@ -43,7 +51,7 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
         sqSig     = (sqSig + sqBuf[0]) / 2.0;
-        float sig = (root.GetValue() * fm2.Process() + sqSig) / 2.0;
+        float sig = (root.GetValue() * fm2.Process() + 0.6 * sqSig) / 1.6;
 
         sig = (1.0 * sig + 1.0 * delay.Read()) / 2.0;
         delay.Write(sig);
@@ -125,15 +133,15 @@ int main(void)
     i2cWrite1(i2c, 0x38, 0b10 << 6); // Put FIFO in Stream mode
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
-    float baseIndex = 0.f;
     fm2.Init(hw.AudioSampleRate());
-    fm2.SetIndex(0.025);
-    fm2.SetFrequency(55);
+    fm2.SetIndex(fmIndex);
+    fm2.SetFrequency(110);
     delay.Init();
     delay.SetDelay(1.f);
     clock.Init(hw.AudioSampleRate());
-    clock.SetTime(ADENV_SEG_ATTACK, 0.001);
-    clock.SetTime(ADENV_SEG_DECAY, 0.2f);
+#define CLOCK 0.2f
+    clock.SetTime(ADENV_SEG_ATTACK, CLOCK / 2.0);
+    clock.SetTime(ADENV_SEG_DECAY, CLOCK / 2.0);
     root.Init(hw.AudioSampleRate());
     root.SetTime(ADENV_SEG_ATTACK, 0.001);
     root.SetTime(ADENV_SEG_DECAY, 0.7f);
@@ -141,7 +149,6 @@ int main(void)
     sqEnv.SetTime(ADENV_SEG_ATTACK, 0.001);
     sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f);
     square.Init(hw.AudioSampleRate());
-    square.SetFreq(8.0 * 58.27);
     square.SetAmp(1.0);
     square.SetWaveform(Oscillator::WAVE_SQUARE);
     reverb.Init(hw.AudioSampleRate());
@@ -166,8 +173,11 @@ int main(void)
             axes[i] = decodeAxis(buf + 2 * (i + 1));
         }
 
+        if(axes[0] > 0)
+            square.SetFreq(466.163);
+        else if(axes[0] < 10)
+            square.SetFreq(493.88);
 
-        fm2.SetRatio((float)(512 + axes[1]) / 1000.0);
-        fm2.SetIndex(baseIndex + (float)(512 + axes[0]) / 10000.0);
+        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[1] / 1024.0));
     }
 }
