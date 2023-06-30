@@ -9,6 +9,7 @@ using namespace daisy;
 using namespace daisysp;
 
 DaisySeed hw;
+Switch    button1, button2;
 
 Fm2        fm2;
 AdEnv      clock, root, sqEnv;
@@ -50,7 +51,7 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                     FLT_VAR(6, fmIndex),
                     FLT_VAR3(fmRatio));
                 fm2.SetIndex(fmIndex);
-                fm2.SetRatio(fmRatio);
+                fm2.SetRatio((button2.Pressed() ? 0.3 : 0) + fmRatio);
             }
             if(!sqEnv.IsRunning() && !mute)
                 sqEnv.Trigger();
@@ -65,8 +66,6 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         float fmSig     = root.GetValue() * fm2.Process();
         float reverbSig = sqSig;
-        /*    if(rootBeat > 11)
-            reverbSig = (sqSig +  fmSig) / 2.0;*/
 
         reverb.Process(reverbSig, reverbSig, sqBuf, sqBuf + 1);
         if(rootBeat > 11)
@@ -121,7 +120,6 @@ int main(void)
     if(ENABLE_SERIAL)
         hw.StartLog(true);
 
-    Switch button1, button2;
     button1.Init(hw.GetPin(28), 0);
     button2.Init(hw.GetPin(27), 0);
 
@@ -168,6 +166,8 @@ int main(void)
     square.Init(hw.AudioSampleRate());
     square.SetAmp(1.0);
     square.SetWaveform(Oscillator::WAVE_SQUARE);
+    reverb.SetFeedback(1.0);
+    reverb.SetLpFreq(46000);
     reverb.Init(hw.AudioSampleRate());
 
     hw.StartAudio(AudioCallback);
@@ -177,16 +177,7 @@ int main(void)
         button1.Debounce();
         button2.Debounce();
         mute = !button1.RawState();
-        if(button2.RawState())
-        {
-            reverb.SetFeedback(1.0);
-            reverb.SetLpFreq(46000);
-        }
-        else
-        {
-            reverb.SetFeedback(0.7);
-            reverb.SetLpFreq(6000);
-        }
+
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
             continue;
