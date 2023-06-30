@@ -50,7 +50,7 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         reverb.Process(sqSig, sqSig, sqBuf, sqBuf + 1);
         sqSig     = (sqSig + sqBuf[0]) / 2.0;
-        float sig = (root.GetValue() * fm2.Process() + 0.6 * sqSig) / 1.6;
+        float sig = (root.GetValue() * fm2.Process() + 0.4 * sqSig) / 1.4;
 
         for(int i = 0; i < 2; i++)
             *out++ = sig;
@@ -167,16 +167,16 @@ int main(void)
             axes[i] = decodeAxis(buf + 2 * (i + 1));
         }
 
-        //     hw.PrintLine("x=%d y=%d", axes[0], axes[1]);
+        hw.PrintLine("x=%d y=%d", axes[0], axes[1]);
 
-        if(axes[0] > 40)
+        if(axes[1] > 40)
             square.SetFreq(415.30);
-        else if(axes[0] < -30)
+        else if(axes[1] < -30)
             square.SetFreq(493.88);
         else
             square.SetFreq(466.163);
 
 
-        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[1] / 512.0));
+        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[0] / 128.0));
     }
 }
