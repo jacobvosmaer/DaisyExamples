@@ -66,14 +66,8 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float fmSig     = root.GetValue() * fm2.Process();
         float reverbSig = sqSig;
         if(rootBeat > 11)
-        {
             reverbSig = (sqSig + 2.0 * fmSig) / 2.0;
-            reverb.SetLpFreq(50000);
-        }
-        else
-        {
-            reverb.SetLpFreq(6000);
-        }
+
         reverb.Process(reverbSig, reverbSig, sqBuf, sqBuf + 1);
         if(rootBeat > 11)
             sqBuf[0] *= 2.0;
@@ -127,8 +121,9 @@ int main(void)
     if(ENABLE_SERIAL)
         hw.StartLog(true);
 
-    Switch button1;
+    Switch button1, button2;
     button1.Init(hw.GetPin(28), 0);
+    button2.Init(hw.GetPin(27), 0);
 
     I2CHandle::Config i2c_conf;
     i2c_conf.periph         = I2CHandle::Config::Peripheral::I2C_1;
@@ -169,20 +164,29 @@ int main(void)
     sqEnv.Init(hw.AudioSampleRate());
     sqEnv.SetTime(ADENV_SEG_ATTACK, 0.001);
     sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f);
+    sqEnv.SetCurve(-10);
     square.Init(hw.AudioSampleRate());
     square.SetAmp(1.0);
     square.SetWaveform(Oscillator::WAVE_SQUARE);
     reverb.Init(hw.AudioSampleRate());
-    reverb.SetFeedback(0.8);
-    reverb.SetLpFreq(6000);
 
     hw.StartAudio(AudioCallback);
 
     for(;;)
     {
         button1.Debounce();
+        button2.Debounce();
         mute = !button1.Pressed();
-
+        if(button2.Pressed())
+        {
+            reverb.SetFeedback(0.999);
+            reverb.SetLpFreq(46000);
+        }
+        else
+        {
+            reverb.SetFeedback(0.8);
+            reverb.SetLpFreq(6000);
+        }
         i2cRead(i2c, 0x30, buf, 8);
         if(!(buf[0] & 0x80))
             continue;
@@ -201,6 +205,6 @@ int main(void)
             square.SetFreq(2.0 * 466.163);
 
 
-        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[0] / 128.0));
+        sqEnv.SetTime(ADENV_SEG_DECAY, 0.1f + fabsf((float)axes[0] / 64.0));
     }
 }
