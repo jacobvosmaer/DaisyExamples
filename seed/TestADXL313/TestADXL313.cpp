@@ -10,8 +10,9 @@ using namespace daisysp;
 
 DaisySeed hw;
 
-Fm2      fm2;
-ReverbSc reverb;
+Fm2                         fm2;
+DelayLine<float, 64 * 1024> delay;
+AdEnv                       env;
 
 bool mute = false;
 
@@ -19,14 +20,18 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t                                size)
 {
-    float buf[2];
+    if(!env.IsRunning())
+        env.Trigger();
 
     for(; size; size -= 2)
     {
-        float sig = mute ? 0 : fm2.Process();
-        reverb.Process(sig, sig, buf, buf + 1);
+        float sig = mute ? 0 : env.Process()*fm2.Process();
+
+        sig = (1.0 * sig + 1.0 * delay.Read()) / 2.0;
+        delay.Write(sig);
+
         for(int i = 0; i < 2; i++)
-            *out++ = (7.0 * sig + buf[i]) / 8.0;
+            *out++ = sig;
     }
 }
 
@@ -104,11 +109,13 @@ int main(void)
 
     float baseIndex = 0.f;
     fm2.Init(hw.AudioSampleRate());
-    fm2.SetIndex(baseIndex);
+    fm2.SetIndex(0.025);
     fm2.SetFrequency(55);
-    reverb.Init(hw.AudioSampleRate());
-    reverb.SetFeedback(0.8);
-    reverb.SetLpFreq(6000);
+    delay.Init();
+    delay.SetDelay(1.f);
+    env.Init(hw.AudioSampleRate());
+    env.SetTime(ADENV_SEG_ATTACK, 0.0001);
+    env.SetTime(ADENV_SEG_DECAY, 0.5f);
     hw.StartAudio(AudioCallback);
 
     int16_t sensorMax[3] = {0}, sensorMin[3] = {0};
@@ -147,7 +154,9 @@ int main(void)
                          sensorMin[2],
                          sensorMax[2]);
 
+        //fm2.SetFrequency(55+env.GetValue()*10);
         fm2.SetRatio((float)(512 + axes[1]) / 1000.0);
-        fm2.SetIndex(baseIndex + (float)(512 + axes[0]) / 4000.0);
+        fm2.SetIndex(baseIndex + (float)(512 + axes[0]) / 10000.0);
+        //       delay.SetDelay((float)(512 + axes[0]) / 1024.0f);
     }
 }
