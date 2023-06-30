@@ -15,9 +15,9 @@ AdEnv      clock, root, sqEnv;
 Oscillator square;
 ReverbSc   reverb;
 
-bool    mute = false;
+bool    mute;
 uint8_t beat;
-float   fmIndex = 0.0035;
+float   fmIndex;
 
 void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                    AudioHandle::InterleavingOutputBuffer out,
@@ -28,15 +28,15 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         if(!clock.IsRunning())
         {
             clock.Trigger();
-            beat++;
             if(!root.IsRunning())
             {
                 root.Trigger();
-                const float indexFactor = 2;
-                if(beat & 1)
-                    fm2.SetIndex(fmIndex * indexFactor);
+                beat++;
+                if(!(beat & 3))
+                    fmIndex = 0.0035f;
                 else
-                    fm2.SetIndex(fmIndex);
+                    fmIndex *= 1.4;
+                fm2.SetIndex(fmIndex);
             }
             if(!sqEnv.IsRunning() && !mute)
                 sqEnv.Trigger();
@@ -130,7 +130,7 @@ int main(void)
     i2cWrite1(i2c, 0x2d, 0b1000);    // Start measuring
 
     fm2.Init(hw.AudioSampleRate());
-    fm2.SetIndex(fmIndex);
+    //    fm2.SetIndex(fmIndex);
     fm2.SetFrequency(110);
     clock.Init(hw.AudioSampleRate());
 #define CLOCK 0.2f
@@ -167,7 +167,7 @@ int main(void)
             axes[i] = decodeAxis(buf + 2 * (i + 1));
         }
 
-        hw.PrintLine("x=%d y=%d", axes[0], axes[1]);
+        //     hw.PrintLine("x=%d y=%d", axes[0], axes[1]);
 
         if(axes[0] > 40)
             square.SetFreq(415.30);
