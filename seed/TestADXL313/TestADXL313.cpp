@@ -65,8 +65,8 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         float fmSig     = root.GetValue() * fm2.Process();
         float reverbSig = sqSig;
-        if(rootBeat > 11)
-            reverbSig = (sqSig + 2.0 * fmSig) / 2.0;
+        /*    if(rootBeat > 11)
+            reverbSig = (sqSig +  fmSig) / 2.0;*/
 
         reverb.Process(reverbSig, reverbSig, sqBuf, sqBuf + 1);
         if(rootBeat > 11)
@@ -179,12 +179,12 @@ int main(void)
         mute = !button1.RawState();
         if(button2.RawState())
         {
-            reverb.SetFeedback(0.999);
+            reverb.SetFeedback(1.0);
             reverb.SetLpFreq(46000);
         }
         else
         {
-            reverb.SetFeedback(0.8);
+            reverb.SetFeedback(0.7);
             reverb.SetLpFreq(6000);
         }
         i2cRead(i2c, 0x30, buf, 8);
